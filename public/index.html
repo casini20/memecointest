@@ -132,7 +132,7 @@ details{margin-top:12px;padding:12px 18px;border-top:1px solid var(--ln)}summary
 .tk span{bottom:auto;top:30px}
 .ic{font-size:17px}
 @media(max-width:860px){.fg{width:min(44px,100%)}.nd span{font-size:9px}.trk:before{top:124px}.tk{top:117px}}
-@media(prefers-reduced-motion:reduce){*{animation-duration:.01s!important;animation-iteration-count:1!important}}
+@media(prefers-reduced-motion:reduce){.ey span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}*{animation-duration:.01s!important;animation-iteration-count:1!important}}
 </style>
 </head>
 <body>
@@ -167,6 +167,7 @@ details{margin-top:12px;padding:12px 18px;border-top:1px solid var(--ln)}summary
 <p class="note">Everything here is simulated: tokens, prices and rugs are randomly generated, with a fee on each side. It does not connect to any wallet or exchange, and results here say nothing about real markets.</p>
 </div>
 <script>
+window.addEventListener('error',e=>{const v=document.getElementById('vd');if(v)v.textContent='script error: '+e.message});window.addEventListener('unhandledrejection',e=>{const v=document.getElementById('vd');if(v)v.textContent='request error: '+(e.reason&&e.reason.message)});
 const D={start:1000,minLiq:15000,maxTop10:35,minVol:2,minScore:55,tp:40,sl:15,trail:10,maxPos:4,sizePct:10,fee:1,hold:30};
 let cfg={...D};
 const L={start:'Starting balance ($)',minLiq:'Min liquidity ($)',maxTop10:'Max top-10 holders (%)',minVol:'Min volume spike (x)',minScore:'Min analyst score',tp:'Take profit (%)',sl:'Stop loss (%)',trail:'Trailing stop (%)',maxPos:'Max open positions',sizePct:'Position size (% of equity)',fee:'Fee per side (%)',hold:'Max hold in live mode (min)'};
@@ -189,7 +190,7 @@ const AGENTS=[
  {k:'K',c:'#d6409f',name:'RISK GATE',desc:'limits + cash check',run:t=>{const sz=equity()*cfg.sizePct/100;return{ok:S.pos.length<cfg.maxPos&&S.cash>=sz,note:S.pos.length>=cfg.maxPos?`${S.pos.length}/${cfg.maxPos} positions open`:S.cash<sz?'not enough cash':`${S.pos.length}/${cfg.maxPos} positions`}}},
 ];
 const N=AGENTS.length+1;
-let S,timer,running=true,shown=cfg.start,twId=0,LIVE=false,busy=0,Q=[],seenP=new Set(),lastPools=0;const T0=Date.now();
+let S,timer,running=true,shown=cfg.start,twId=0,LIVE=false,busy=0,Q=[],seenP=new Set(),lastPools=0,busyAt=0;const T0=Date.now();const jf=(u,ms=8000)=>{const c=new AbortController(),t=setTimeout(()=>c.abort(),ms);return fetch(u,{signal:c.signal}).finally(()=>clearTimeout(t))};
 function equity(){return S.cash+S.pos.reduce((a,p)=>a+p.sh*p.t.price*(1-cfg.fee/100),0)}
 function reset(){S={cash:cfg.start,pos:[],closed:[],eq:[cfg.start],log:[],chips:[],st:AGENTS.map(()=>({p:0,f:0,s:'idle',n:'waiting'})),exits:0,fees:0,n:0,ent:0,filt:0,chip:'READY',vd:'waiting for the first token…',size:0};shown=cfg.start;render()}
 function gen(){
@@ -208,22 +209,22 @@ function close(p,why){
  const val=p.sh*p.t.price*(1-cfg.fee/100);S.fees+=p.sh*p.t.price*cfg.fee/100;S.cash+=val;
  const pnl=val-p.cost;S.closed.unshift({sym:p.t.sym,pnl});S.exits++;S.pos=S.pos.filter(x=>x!==p);
  S.log.unshift({t:hm(),ty:'EXIT',sym:p.t.sym,why,amt:sg(pnl),cl:pnl>=0?'up':'dn',fresh:1});S.chip='TRADE CLOSED · LOGGED '+p.t.sym}
-async function refresh(){if(!LIVE||!S.pos.length)return;try{const r=await(await fetch('/api/prices?a='+S.pos.map(p=>p.t.addr).join(','))).json();S.pos.forEach(p=>{if(r[p.t.addr])p.t.price=r[p.t.addr]/p.t.p0})}catch(e){}}
+async function refresh(){if(!LIVE||!S.pos.length)return;try{const r=await(await jf('/api/prices?a='+S.pos.map(p=>p.t.addr).join(','))).json();S.pos.forEach(p=>{const v=r[p.t.addr]/p.t.p0;if(isFinite(v)&&v>0)p.t.price=v})}catch(e){}}
 async function nextTok(){try{
- if(Date.now()-lastPools>60000){lastPools=Date.now();const j=await(await fetch('/api/pools')).json();(j.pools||[]).slice().sort((a,b)=>a.created-b.created).forEach(p=>{if(!seenP.has(p.id)){seenP.add(p.id);if(Date.now()/1000-p.created<1800)Q.push(p)}})}
+ if(Date.now()-lastPools>60000){lastPools=Date.now();const j=await(await jf('/api/pools')).json();(j.pools||[]).slice().sort((a,b)=>a.created-b.created).forEach(p=>{if(!seenP.has(p.id)){seenP.add(p.id);if(Date.now()/1000-p.created<1800)Q.push(p)}})}
  const p=Q.shift();if(!p)return null;
- const[sf,pr]=await Promise.all([fetch('/api/safety?mint='+p.addr).then(r=>r.ok?r.json():null),fetch('/api/prices?a='+p.addr).then(r=>r.json())]);
+ const[sf,pr]=await Promise.all([jf('/api/safety?mint='+p.addr).then(r=>r.ok?r.json():null),jf('/api/prices?a='+p.addr).then(r=>r.json())]);
  if(!sf||!pr[p.addr])return null;
  return{sym:p.sym,addr:p.addr,price:1,px:pr[p.addr],age:Math.round((Date.now()/1000-p.created)/60),liq:p.liq,vol:p.vol,smart:Math.min(4,Math.floor(p.buyers/8)),sent:p.buys+p.sells?p.buys/(p.buys+p.sells):.5,devAge:99,mint:sf.mint,honey:sf.honey,devPct:sf.devPct,top10:sf.top10}
 }catch(e){return null}}
-async function tick(){if(busy)return;busy=1;try{await tk2()}catch(e){console.error(e)}finally{busy=0}}
+async function tick(){if(busy&&Date.now()-busyAt<25000)return;busy=1;busyAt=Date.now();try{await tk2()}catch(e){console.error(e);g('vd').textContent='error: '+(e&&e.message)}finally{busy=0}}
 async function tk2(){
  await refresh();
  [...S.pos].forEach(p=>{if(!LIVE)step(p.t);p.age++;const r=p.t.price/p.entry-1;p.peak=Math.max(p.peak,p.t.price);let w=null;
   if(p.t.price<p.entry*.25)w='rug, price down 75%+';else if(r*100>=cfg.tp)w='take profit hit';else if(r*100<=-cfg.sl)w=`stop ${cfg.sl}% hit`;
   else if(p.peak>p.entry*1.1&&p.t.price<=p.peak*(1-cfg.trail/100))w='trailing stop';else if(LIVE?Date.now()-p.t0>cfg.hold*60000:p.age>40)w='time limit';
   if(w)close(p,w)});
- const t=LIVE?await nextTok():gen();if(!t){S.vd='scanning for new pairs…';S.eq.push(equity());render();return}S.n++;let stop=-1;
+ const t=LIVE?await nextTok():gen();if(!t){S.chip='SCANNING';S.vd=LIVE?`waiting for new pools · ${Q.length} queued · next check in ${Math.max(0,Math.ceil((60000-(Date.now()-lastPools))/1000))}s`:'scanning for new pairs…';S.eq.push(equity());render();return}S.n++;let stop=-1;
  for(let i=0;i<AGENTS.length;i++){const o=AGENTS[i].run(t);S.st[i].n=o.note;if(o.ok)S.st[i].p++;else{S.st[i].f++;stop=i;break}}
  S.st.forEach((x,i)=>x.s=stop<0||i<stop?'pass':i===stop?'veto':'idle');
  const ok=stop<0;
