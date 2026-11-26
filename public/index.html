@@ -142,8 +142,9 @@ details{margin-top:12px;padding:12px 18px;border-top:1px solid var(--ln)}summary
 .rt:first-child{border-top:0}.rt:hover,.cp:hover,.pr:hover{background:color-mix(in srgb,var(--tx) 6%,transparent)}.cp,.pr{cursor:pointer}
 .rt b{font-size:16px}.rt b.big{font:600 20px "JetBrains Mono",monospace}.rt small{display:block;font-size:11px}
 .pill.ls{color:var(--dn);border-color:var(--dn)}
-.wb{display:inline-block;animation:wbp 1s ease-out infinite}
-@keyframes wbp{0%{transform:scale(1.35) rotate(-10deg)}60%{transform:scale(1)}}
+dialog{border:1px solid var(--ln);border-radius:20px;background:var(--sf);color:var(--tx);padding:20px 22px;width:min(380px,92vw)}dialog::backdrop{background:rgba(10,12,20,.5)}dialog h3{margin:0 0 8px}dialog label{display:block;margin:10px 0}.dact{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+.wb{display:inline-block;margin-right:7px;animation:wbb 2.4s ease-in-out infinite}
+@keyframes wbb{50%{transform:translateY(-2px)}}
 .ov{position:fixed;inset:0;background:rgba(10,12,20,.45);opacity:0;pointer-events:none;transition:opacity .25s;z-index:20}.ov.on{opacity:1;pointer-events:auto}
 .dr{position:fixed;top:0;right:0;bottom:0;width:min(440px,100%);transform:translateX(105%);transition:transform .35s cubic-bezier(.2,.9,.3,1);z-index:21;background:var(--sf);border-left:1px solid var(--ln);padding:calc(18px + env(safe-area-inset-top,0px)) 18px calc(18px + env(safe-area-inset-bottom,0px));overflow:auto}.dr.on{transform:none}
 .dh{display:flex;justify-content:space-between;gap:10px}.dh h3{margin:0;font:600 26px "JetBrains Mono",monospace;color:var(--tl)}.dh small{word-break:break-all;font-size:11px}
@@ -165,7 +166,7 @@ details{margin-top:12px;padding:12px 18px;border-top:1px solid var(--ln)}summary
   <div class="m"><b id="bal">$0</b><small>balance</small></div>
   <div style="display:flex;gap:22px"><div class="m s"><b id="nt">0</b><small>trades</small></div><div class="m s"><b class="up" id="nw">0</b><small>wins</small></div><div class="m s"><b class="dn" id="nl">0</b><small>losses</small></div></div>
 </div>
-<div class="ct"><button id="run" class="p">Pause</button><select id="spd" aria-label="Speed"><option value="1400">Slow</option><option value="800" selected>Normal</option><option value="250">Fast</option></select><button id="rst">Reset</button></div>
+<div class="ct"><button id="run" class="p">Pause</button><select id="spd" aria-label="Speed"><option value="1400">Slow</option><option value="800" selected>Normal</option><option value="250">Fast</option></select><select id="acc" aria-label="Account"></select><button id="nacc">New account</button><button id="rst">Reset account</button><button id="dacc">Delete</button></div>
 <div class="pnl" id="pnl"></div>
 <div class="mn">
  <div class="col"><p class="ey"><span>AGENTS</span><span id="ao"></span></p><div id="ags"></div></div>
@@ -188,6 +189,7 @@ details{margin-top:12px;padding:12px 18px;border-top:1px solid var(--ln)}summary
 </div>
 <p class="note">Everything here is simulated: tokens, prices and rugs are randomly generated, with a fee on each side. It does not connect to any wallet or exchange, and results here say nothing about real markets.</p>
 </div>
+<dialog id="dlg"><div id="dlgb"></div></dialog>
 <script>
 window.addEventListener('error',e=>{const v=document.getElementById('vd');if(v)v.textContent='script error: '+e.message});window.addEventListener('unhandledrejection',e=>{const v=document.getElementById('vd');if(v)v.textContent='request error: '+(e.reason&&e.reason.message)});
 const D={start:1000,minLiq:15000,maxTop10:35,minVol:2,minScore:55,tp:40,sl:15,trail:10,maxPos:4,sizePct:10,fee:1,hold:30};
@@ -214,7 +216,8 @@ const AGENTS=[
 const N=AGENTS.length+1;
 let S,timer,running=true,shown=cfg.start,twId=0,LIVE=false,busy=0,Q=[],seenP=new Set(),lastPools=0,lastFresh=0,busyAt=0;const T0=Date.now();const jf=(u,ms=8000)=>{const c=new AbortController(),t=setTimeout(()=>c.abort(),ms);return fetch(u,{signal:c.signal}).finally(()=>clearTimeout(t))};
 function equity(){return S.cash+S.pos.reduce((a,p)=>a+p.sh*p.t.price*(1-cfg.fee/100),0)}
-function reset(){S={cash:cfg.start,real:0,pos:[],closed:[],eq:[cfg.start],log:[],chips:[],st:AGENTS.map(()=>({p:0,f:0,s:'idle',n:'waiting'})),exits:0,fees:0,n:0,ent:0,filt:0,chip:'READY',vd:'waiting for the first token…',size:0};shown=cfg.start;render()}
+function fresh(start){return{cash:start,real:0,pos:[],closed:[],eq:[start],log:[],chips:[],st:AGENTS.map(()=>({p:0,f:0,s:'idle',n:'waiting'})),exits:0,fees:0,n:0,ent:0,filt:0,chip:'READY',vd:'waiting for the first token…',size:0}}
+function reset(){const a=acc();S=fresh(a.start);cfg.start=a.start;const d=a.data;if(d&&d.s){Object.assign(S,d.s);for(const k in d.tok||{})TOK[k]=d.tok[k];S.pos.forEach(p=>{TOK[p.t.id]=p.t});S.vd='saved account restored · '+S.pos.length+' open positions'}shown=equity();drawAccounts();render()}
 function gen(){
  const r=Math.random(),kind=r<.15?'runner':r<.55?'flat':r<.8?'dud':'rug',rug=kind==='rug',run=kind==='runner';
  return{sym:'$'+P(syl).toUpperCase()+(Math.random()<.4?P(syl):''),kind,price:1,age:Math.round(R(1,42)),mint:rug?Math.random()<.4:Math.random()<.92,honey:rug&&Math.random()<.3,devAge:Math.round(rug?R(0,12):R(0,70)),devPct:rug?R(2,25):R(0,10),liq:rug?R(4000,45000):R(9000,95000),top10:rug?R(30,70):run?R(14,40):R(15,55),vol:rug?R(1.2,6):run?R(1.8,6):R(.6,4),smart:Math.round(rug?R(0,2):run?R(1,5):R(0,3)),sent:rug?R(.2,.9):run?R(.4,.95):R(.1,.7),life:0,rugAt:Math.round(R(4,14))}
@@ -239,7 +242,7 @@ async function nextTok(){try{
  if(Date.now()-lastPools>60000){lastPools=Date.now();jobs.push(jf('/api/pools').then(r=>r.json()).then(add).catch(()=>{}))}
  const w=Promise.all(jobs);if(!Q.length)await w;
  if(Q.length>40)Q.splice(0,Q.length-40);
- const p=Q.pop();if(!p)return null;
+ const p=Q.pop();if(!p)return null;if(S.pos.some(x=>x.t.addr===p.addr)||S.closed.some(x=>x.id===p.addr))return null;
  const[sf,pr]=await Promise.all([jf('/api/safety?mint='+p.addr).then(r=>r.ok?r.json():null),jf('/api/prices?a='+p.addr).then(r=>r.json())]);
  if(!sf||!pr[p.addr])return null;
  return{sym:String(p.sym).replace(/[^A-Za-z0-9_.$-]/g,'').slice(0,11),id:p.addr,addr:p.addr,price:1,px:pr[p.addr],age:Math.round((Date.now()/1000-p.created)/60),liq:p.liq,vol:p.vol,smart:Math.min(4,Math.floor(p.buyers/8)),sent:p.buys+p.sells?p.buys/(p.buys+p.sells):.5,devAge:99,mint:sf.mint,honey:sf.honey,devPct:sf.devPct,top10:sf.top10,risks:sf.risks||[]}
@@ -289,7 +292,11 @@ function render(){
  const last=S.closed[0];
  g('tiles').innerHTML=[['FILTERED',S.filt,`of ${S.n} checked`,'#e5484d'],['SIZER',cfg.sizePct+'% eq',$(S.size||e*cfg.sizePct/100),'#8b5cf6'],['LOGGER','line #'+S.log.length,'each with a reason','#f08a24'],['EQUITY',last?sg(last.pnl):'–','last close','#3b82f6']].map(x=>`<div class="tl" style="--c:${x[3]}"><small>${x[0]}</small><b>${x[1]}</b><span>${x[2]}</span></div>`).join('');
  g('po').textContent=S.pos.length+'/'+cfg.maxPos+(LIVE&&S.px&&S.pos.length?' · prices '+Math.round((Date.now()-S.px)/1000)+'s ago':'');
- g('pos').innerHTML=S.pos.length?S.pos.map(p=>{const r=(p.t.price/p.entry-1)*100,d=r-(p.lr==null?r:p.lr);p.lr=r;return`<div class="row pr" data-id="${p.t.id}"><b><span class="wb">🤖</span> ${p.t.sym}</b><span class="pill out">LONG</span><small>${$(p.cost)} · ${sg(p.sh*p.t.price*(1-cfg.fee/100)-p.cost)}</small><b class="${r>=0?'up':'dn'}${d>0?' fu':d<0?' fd':''}">${r>=0?'+':''}${r.toFixed(2)}%</b></div>`}).join(''):'<div class="mu">No open positions. A token that passes every agent shows up here.</div>';
+ const box=g('pos'),key=S.pos.map(p=>p.t.id).join('|');
+ if(box.dataset.k!==key||!S.pos.length){box.dataset.k=key;box.innerHTML=S.pos.length?S.pos.map(p=>`<div class="row pr" data-id="${esc(p.t.id)}"><b><span class="wb" title="Watcher bot: price every second">🤖</span>${esc(p.t.sym)}</b><span class="pill out">LONG</span><small class="ps"></small><b class="pp"></b></div>`).join(''):'<div class="mu">No open positions. A token that passes every agent shows up here.</div>'}
+ S.pos.forEach(p=>{const row=[...box.children].find(x=>x.dataset.id===p.t.id);if(!row)return;const r=(p.t.price/p.entry-1)*100,pp=row.querySelector('.pp'),txt=(r>=0?'+':'')+r.toFixed(2)+'%';
+  row.querySelector('.ps').textContent=$(p.cost)+' · '+sg(p.sh*p.t.price*(1-cfg.fee/100)-p.cost);
+  if(pp.textContent!==txt){const up=r>=(p.lr==null?r:p.lr);pp.textContent=txt;pp.className='pp '+(r>=0?'up':'dn');void pp.offsetWidth;pp.classList.add(up?'fu':'fd')}p.lr=r});
  const pl=e-cfg.start;g('rw').textContent=W+' W / '+(S.closed.length-W)+' L';g('r0').textContent=$(cfg.start);g('r1').textContent=$(e);g('r1').className='mono '+(pl>=0?'up':'dn');
  const f=g('rbf');f.style.width=Math.max(2,Math.min(100,e/(cfg.start*2)*100))+'%';f.style.background=pl>=0?'var(--up)':'var(--dn)';
  const a=S.eq,mn=Math.min(...a,cfg.start),mx=Math.max(...a,cfg.start),sp=(mx-mn)||1,X=i=>a.length>1?i/(a.length-1)*400:0,Y=v=>82-(v-mn)/sp*74,pts=a.map((v,i)=>X(i).toFixed(1)+','+Y(v).toFixed(1)).join(' '),c=pl>=0?'var(--up)':'var(--dn)';
@@ -297,7 +304,7 @@ function render(){
  const inv=S.pos.reduce((a,p)=>a+p.cost,0),unr=S.pos.reduce((a,p)=>a+p.sh*p.t.price*(1-cfg.fee/100)-p.cost,0),tot=e-cfg.start;
  const tile=(k,l,v,sub,col)=>{const d=v-(PV[k]==null?v:PV[k]);PV[k]=v;return`<div class="pt${d>0?' fu':d<0?' fd':''}"><small>${l}</small><b class="${col!=null?col:v>=0?'up':'dn'}">${col!=null?$(v):sg(v)}</b><span>${sub}</span></div>`};
  g('pnl').innerHTML=tile('t','Total P&amp;L',tot,(tot>=0?'+':'')+(tot/cfg.start*100).toFixed(2)+'% since start')+tile('r','Realised',S.real,S.closed.length+' closed trades')+tile('u','Unrealised',unr,S.pos.length+' open · '+$(inv)+' in')+tile('c','Cash',S.cash,'free to trade','')+tile('f','Fees paid',-S.fees,'both sides','dn');
- g('rt').textContent=S.closed.length+' closed';
+ g('rt').textContent=S.closed.length+' closed';save();
  g('log').innerHTML=S.closed.length?S.closed.slice(0,14).map(x=>`<div class="rt" data-id="${esc(x.id)}"><span><b>${esc(x.sym)}</b><small class="mu">${esc(x.why)} · held ${dur(x.dur)}</small></span><span class="pill ${x.pnl>=0?'out':'ls'}">${x.pct>=0?'+':''}${x.pct.toFixed(1)}%</span><b class="big ${x.pnl>=0?'up':'dn'}">${sg(x.pnl)}</b></div>`).join(''):'<div class="mu">No closed trades yet. Results show here with their P&amp;L.</div>';
 }
 function loop(){clearInterval(timer);if(running)timer=setInterval(tick,LIVE?Math.max(1500,+g('spd').value):+g('spd').value)}
@@ -328,12 +335,29 @@ ${r!=null?`<div class="dp"><b class="${r>=0?'up':'dn'}">${r>=0?'+':''}${r.toFixe
 <h4>AGENT VERDICTS</h4>${(t.chk||[]).map(c=>`<div class="ck"><span class="${c[1]?'up':'dn'}">${c[1]?'✓':'✕'}</span><b>${esc(c[0])}</b><small class="mu">${esc(c[2])}</small></div>`).join('')}
 ${t.risks&&t.risks.length?'<h4>RUGCHECK RISKS</h4>'+t.risks.map(x=>`<div class="ck"><span class="dn">!</span><b>${esc(x.n)}</b><small class="mu">${esc(x.l)}</small></div>`).join(''):''}`;
  el.scrollTop=y}
+let KEY='agentdesk:v1:sim',ACC=null,lastSave=0;
+const acc=()=>ACC.accounts.find(a=>a.id===ACC.active);
+function initStore(){let st=null;try{st=JSON.parse(localStorage.getItem(KEY))}catch(e){}
+ if(!st||!Array.isArray(st.accounts)||!st.accounts.length){const a={id:'a'+Date.now(),name:'Main account',start:D.start,created:Date.now()};st={accounts:[a],active:a.id,cfg:null}}
+ if(!st.accounts.some(a=>a.id===st.active))st.active=st.accounts[0].id;
+ ACC=st;cfg={...D,...(st.cfg||{}),start:acc().start};document.querySelectorAll('#cfg input').forEach(i=>{if(cfg[i.dataset.k]!=null)i.value=cfg[i.dataset.k]})}
+function save(force){if(!ACC||!S)return;const now=Date.now();if(!force&&now-lastSave<2000)return;lastSave=now;const a=acc();if(!a)return;
+ const tok={};S.closed.slice(0,30).forEach(x=>{if(TOK[x.id])tok[x.id]=TOK[x.id]});
+ a.data={s:{cash:S.cash,real:S.real,pos:S.pos,closed:S.closed.slice(0,200),eq:S.eq,fees:S.fees,exits:S.exits,ent:S.ent,filt:S.filt,n:S.n,chips:S.chips},tok};ACC.cfg={...cfg};
+ try{localStorage.setItem(KEY,JSON.stringify(ACC))}catch(e){}}
+addEventListener('beforeunload',()=>save(true));document.addEventListener('visibilitychange',()=>{if(document.hidden)save(true)});
+function drawAccounts(){g('acc').innerHTML=ACC.accounts.map(a=>`<option value="${esc(a.id)}"${a.id===ACC.active?' selected':''}>${esc(a.name)}</option>`).join('');g('dacc').hidden=ACC.accounts.length<2}
+function switchAcc(id){save(true);ACC.active=id;lastSave=0;reset();save(true)}
+function dlg(title,body,ok,fn){const d=g('dlg');g('dlgb').innerHTML=`<h3>${title}</h3>${body}<div class="dact"><button id="dno">Cancel</button><button id="dok" class="p">${ok}</button></div>`;const c=()=>d.close?d.close():d.removeAttribute('open');d.showModal?d.showModal():d.setAttribute('open','');g('dno').onclick=c;g('dok').onclick=()=>{fn();c()}}
+function openNew(){dlg('New account','<label>Name<input id="an" maxlength="24" value="Account '+(ACC.accounts.length+1)+'"></label><label>Starting balance ($)<input id="ab" type="number" min="1" value="1000"></label>','Create',()=>{save(true);const a={id:'a'+Date.now(),name:(g('an').value.trim()||'Account').slice(0,24),start:Math.max(1,+g('ab').value||1000),created:Date.now()};ACC.accounts.push(a);ACC.active=a.id;lastSave=0;reset();save(true)})}
+function openReset(){const a=acc();dlg('Reset this account?','<p class="mu">All trades and P&amp;L of <b>'+esc(a.name)+'</b> will be erased.</p><label>Starting balance ($)<input id="rb" type="number" min="1" value="'+a.start+'"></label>','Reset',()=>{a.start=Math.max(1,+g('rb').value||a.start);a.data=null;lastSave=0;reset();save(true)})}
+function openDel(){if(ACC.accounts.length<2)return;const a=acc();dlg('Delete this account?','<p class="mu"><b>'+esc(a.name)+'</b> and its trade history will be removed.</p>','Delete',()=>{ACC.accounts=ACC.accounts.filter(x=>x!==a);ACC.active=ACC.accounts[0].id;lastSave=0;reset();save(true)})}
 g('run').onclick=e=>{running=!running;e.target.textContent=running?'Pause':'Resume';g('st').textContent=running?'running':'paused';g('lv').style.animationPlayState=running?'running':'paused';loop()};
-g('spd').onchange=loop;g('rst').onclick=reset;
-g('cfg').innerHTML=Object.keys(D).map(k=>`<label>${L[k]}<input type="number" data-k="${k}" value="${D[k]}" step="any"></label>`).join('');
+g('spd').onchange=loop;g('rst').onclick=openReset;g('nacc').onclick=openNew;g('dacc').onclick=openDel;g('acc').onchange=e=>switchAcc(e.target.value);
+g('cfg').innerHTML=Object.keys(D).filter(k=>k!=='start').map(k=>`<label>${L[k]}<input type="number" data-k="${k}" value="${D[k]}" step="any"></label>`).join('');
 g('cfg').oninput=e=>{const k=e.target.dataset.k,v=parseFloat(e.target.value);if(k&&!isNaN(v)&&v>=0){cfg[k]=v;if(k==='start'&&!S.pos.length&&!S.closed.length){S.cash=v;S.eq=[v]}render()}};
-reset();
-fetch('/api/pools').then(r=>r.json()).then(j=>{if(j&&Array.isArray(j.pools)){LIVE=true;document.querySelector('.bd').textContent='paper · LIVE market data';document.querySelector('.note').textContent='Live mode: new Solana pools from GeckoTerminal, prices from DexScreener, safety data from RugCheck. Trades are paper only and never touch a wallet. Smart money and sentiment are proxies (unique buyers and buy ratio).'}}).catch(()=>{}).finally(()=>{reset();loop();setTimeout(tick,300);if(LIVE)setInterval(fastPrices,1000)});
+initStore();reset();
+fetch('/api/pools').then(r=>r.json()).then(j=>{if(j&&Array.isArray(j.pools)){LIVE=true;document.querySelector('.bd').textContent='paper · LIVE market data';document.querySelector('.note').textContent='Live mode: new Solana pools from GeckoTerminal, prices from DexScreener, safety data from RugCheck. Trades are paper only and never touch a wallet. Smart money and sentiment are proxies (unique buyers and buy ratio).'}}).catch(()=>{}).finally(()=>{KEY=LIVE?'agentdesk:v1:live':'agentdesk:v1:sim';initStore();reset();loop();setTimeout(tick,300);if(LIVE)setInterval(fastPrices,1000)});
 </script>
 </body>
 </html>
