@@ -212,7 +212,7 @@ const AGENTS=[
  {k:'K',c:'#d6409f',name:'RISK GATE',desc:'limits + cash check',run:t=>{const sz=equity()*cfg.sizePct/100;return{ok:S.pos.length<cfg.maxPos&&S.cash>=sz,note:S.pos.length>=cfg.maxPos?`${S.pos.length}/${cfg.maxPos} positions open`:S.cash<sz?'not enough cash':`${S.pos.length}/${cfg.maxPos} positions`}}},
 ];
 const N=AGENTS.length+1;
-let S,timer,running=true,shown=cfg.start,twId=0,LIVE=false,busy=0,Q=[],seenP=new Set(),lastPools=0,busyAt=0;const T0=Date.now();const jf=(u,ms=8000)=>{const c=new AbortController(),t=setTimeout(()=>c.abort(),ms);return fetch(u,{signal:c.signal}).finally(()=>clearTimeout(t))};
+let S,timer,running=true,shown=cfg.start,twId=0,LIVE=false,busy=0,Q=[],seenP=new Set(),lastPools=0,lastFresh=0,busyAt=0;const T0=Date.now();const jf=(u,ms=8000)=>{const c=new AbortController(),t=setTimeout(()=>c.abort(),ms);return fetch(u,{signal:c.signal}).finally(()=>clearTimeout(t))};
 function equity(){return S.cash+S.pos.reduce((a,p)=>a+p.sh*p.t.price*(1-cfg.fee/100),0)}
 function reset(){S={cash:cfg.start,real:0,pos:[],closed:[],eq:[cfg.start],log:[],chips:[],st:AGENTS.map(()=>({p:0,f:0,s:'idle',n:'waiting'})),exits:0,fees:0,n:0,ent:0,filt:0,chip:'READY',vd:'waiting for the first token…',size:0};shown=cfg.start;render()}
 function gen(){
@@ -233,8 +233,13 @@ function close(p,why){
  S.log.unshift({t:hm(),ty:'EXIT',sym:p.t.sym,why,amt:sg(pnl),cl:pnl>=0?'up':'dn',fresh:1});S.chip='TRADE CLOSED · LOGGED '+p.t.sym}
 async function refresh(){if(!LIVE||!S.pos.length)return;try{const r=await(await jf('/api/prices?a='+S.pos.map(p=>p.t.addr).join(','))).json();S.px=Date.now();S.pos.forEach(p=>{const v=r[p.t.addr]/p.t.p0;if(isFinite(v)&&v>0){p.t.price=v;(p.t.hist=p.t.hist||[1]).push(v);if(p.t.hist.length>240)p.t.hist.shift()}})}catch(e){}}
 async function nextTok(){try{
- if(Date.now()-lastPools>60000){lastPools=Date.now();const j=await(await jf('/api/pools')).json();(j.pools||[]).slice().sort((a,b)=>a.created-b.created).forEach(p=>{if(!seenP.has(p.id)){seenP.add(p.id);if(Date.now()/1000-p.created<1800)Q.push(p)}})}
- const p=Q.shift();if(!p)return null;
+ const add=j=>(j.pools||[]).slice().sort((a,b)=>a.created-b.created).forEach(p=>{if(!seenP.has(p.addr)){seenP.add(p.addr);if(Date.now()/1000-p.created<1800)Q.push(p)}});
+ const jobs=[];
+ if(Date.now()-lastFresh>5000){lastFresh=Date.now();jobs.push(jf('/api/fresh').then(r=>r.json()).then(add).catch(()=>{}))}
+ if(Date.now()-lastPools>60000){lastPools=Date.now();jobs.push(jf('/api/pools').then(r=>r.json()).then(add).catch(()=>{}))}
+ const w=Promise.all(jobs);if(!Q.length)await w;
+ if(Q.length>40)Q.splice(0,Q.length-40);
+ const p=Q.pop();if(!p)return null;
  const[sf,pr]=await Promise.all([jf('/api/safety?mint='+p.addr).then(r=>r.ok?r.json():null),jf('/api/prices?a='+p.addr).then(r=>r.json())]);
  if(!sf||!pr[p.addr])return null;
  return{sym:String(p.sym).replace(/[^A-Za-z0-9_.$-]/g,'').slice(0,11),id:p.addr,addr:p.addr,price:1,px:pr[p.addr],age:Math.round((Date.now()/1000-p.created)/60),liq:p.liq,vol:p.vol,smart:Math.min(4,Math.floor(p.buyers/8)),sent:p.buys+p.sells?p.buys/(p.buys+p.sells):.5,devAge:99,mint:sf.mint,honey:sf.honey,devPct:sf.devPct,top10:sf.top10,risks:sf.risks||[]}
@@ -250,7 +255,7 @@ function exits(){
 }
 async function tk2(){
  if(!LIVE)exits();
- const t=LIVE?await nextTok():gen();if(!t){S.chip='SCANNING';S.vd=LIVE?`waiting for new pools · ${Q.length} queued · next check in ${Math.max(0,Math.ceil((60000-(Date.now()-lastPools))/1000))}s`:'scanning for new pairs…';S.eq.push(equity());render();return}S.n++;t.id=t.id||t.sym+'#'+S.n;TOK[t.id]=t;let stop=-1;
+ const t=LIVE?await nextTok():gen();if(!t){S.chip='SCANNING';S.vd=LIVE?`waiting for new pools · ${Q.length} queued · next check in ${Math.max(0,Math.ceil((5000-(Date.now()-lastFresh))/1000))}s`:'scanning for new pairs…';S.eq.push(equity());render();return}S.n++;t.id=t.id||t.sym+'#'+S.n;TOK[t.id]=t;let stop=-1;
  for(let i=0;i<AGENTS.length;i++){const o=AGENTS[i].run(t);S.st[i].n=o.note;(t.chk=t.chk||[]).push([AGENTS[i].name,o.ok,o.note]);if(o.ok)S.st[i].p++;else{S.st[i].f++;stop=i;break}}
  S.st.forEach((x,i)=>x.s=stop<0||i<stop?'pass':i===stop?'veto':'idle');
  const ok=stop<0;
