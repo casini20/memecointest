@@ -192,9 +192,9 @@ dialog{border:1px solid var(--ln);border-radius:20px;background:var(--sf);color:
 <dialog id="dlg"><div id="dlgb"></div></dialog>
 <script>
 window.addEventListener('error',e=>{const v=document.getElementById('vd');if(v)v.textContent='script error: '+e.message});window.addEventListener('unhandledrejection',e=>{const v=document.getElementById('vd');if(v)v.textContent='request error: '+(e.reason&&e.reason.message)});
-const D={start:1000,minLiq:15000,maxTop10:35,minVol:2,minScore:55,tp:40,sl:15,trail:10,maxPos:4,sizePct:10,fee:1,hold:30};
+const D={start:1000,minLiq:15000,maxTop10:35,minVol:2,minScore:55,tp:40,sl:15,trail:10,maxPos:4,sizePct:10,fee:1,hold:30,maxDev:8,minLp:50,maxInsPct:15,minDevAge:3};
 let cfg={...D};
-const L={start:'Starting balance ($)',minLiq:'Min liquidity ($)',maxTop10:'Max top-10 holders (%)',minVol:'Min volume spike (x)',minScore:'Min analyst score',tp:'Take profit (%)',sl:'Stop loss (%)',trail:'Trailing stop (%)',maxPos:'Max open positions',sizePct:'Position size (% of equity)',fee:'Fee per side (%)',hold:'Max hold in live mode (min)'};
+const L={start:'Starting balance ($)',minLiq:'Min liquidity ($)',maxTop10:'Max top-10 holders (%)',minVol:'Min volume spike (x)',minScore:'Min analyst score',tp:'Take profit (%)',sl:'Stop loss (%)',trail:'Trailing stop (%)',maxPos:'Max open positions',sizePct:'Position size (% of equity)',fee:'Fee per side (%)',hold:'Max hold in live mode (min)',maxDev:'Max dev holding (%)',minLp:'Min LP locked or burned (%)',maxInsPct:'Max insider-held supply (%)',minDevAge:'Min dev wallet age (days, if known)'};
 let LITE=false;const SKIP=new Set(['ags','chips','tiles','log']),NOP={};const g=i=>LITE&&SKIP.has(i)?NOP:document.getElementById(i),R=(a,b)=>a+Math.random()*(b-a),P=a=>a[Math.floor(Math.random()*a.length)];
 const gauss=()=>{let u=0;for(let i=0;i<6;i++)u+=Math.random();return(u-3)/Math.sqrt(.5)};
 const syl=['pep','wen','moo','dog','zap','sna','bo','tide','puff','kek','fro','mog','lil','ban','cat'];
@@ -205,8 +205,8 @@ const sg=n=>(n>=0?'+':'')+$(n);
 /* ---- YOUR AGENTS: edit, reorder or add. run(token) returns {ok, note} ---- */
 const AGENTS=[
  {k:'S',c:'#f08a24',name:'SCOUT',desc:'fresh pairs only',run:t=>({ok:t.age<=30,note:`pair age ${t.age} min`})},
- {k:'R',c:'#e5484d',name:'RUG CHECK',desc:'mint revoked, sells open',run:t=>({ok:t.mint&&!t.honey,note:!t.mint?'mint still active':t.honey?'honeypot, sells blocked':'mint revoked, sells open'})},
- {k:'D',c:'#d9a400',name:'DEV CHECK',desc:'dev wallet age + bag',run:t=>({ok:t.devAge>=3&&t.devPct<=8,note:`dev ${t.devAge}d old, holds ${t.devPct.toFixed(1)}%`})},
+ {k:'R',c:'#e5484d',name:'RUG CHECK',desc:'authorities, LP lock, honeypot',run:t=>{const bad=!t.mint?'mint/freeze authority still active':t.honey?'RugCheck says it already rugged':t.buys>15&&t.sells===0?`${t.buys} buys but no sells (honeypot?)`:t.dng&&t.dng.length?'RugCheck danger: '+t.dng.join(', '):t.lp!=null&&t.lp<cfg.minLp?`only ${t.lp.toFixed(0)}% of LP locked or burned`:null;return{ok:!bad,note:bad||'authorities renounced'+(t.lp!=null?', LP '+t.lp.toFixed(0)+'% locked':'')}}},
+ {k:'D',c:'#d9a400',name:'DEV CHECK',desc:'dev bag, insiders, wallet age',run:t=>{const known=t.devAge!=null&&t.devAge<99,bad=t.devPct>cfg.maxDev?`dev holds ${t.devPct.toFixed(1)}% (max ${cfg.maxDev}%)`:t.insPct>cfg.maxInsPct?`insiders hold ${t.insPct.toFixed(0)}% of supply`:known&&t.devAge<cfg.minDevAge?`dev wallet only ${t.devAge}d old`:null;return{ok:!bad,note:bad||`dev ${t.devPct.toFixed(1)}%, insiders ${(t.insPct||0).toFixed(0)}%, wallet age ${known?t.devAge+'d':'unknown'}`}}},
  {k:'L',c:'#3b82f6',name:'LIQ HUNTER',desc:'enough liquidity to exit',run:t=>({ok:t.liq>=cfg.minLiq,note:`$${fm(t.liq)} liquidity`})},
  {k:'H',c:'#12a594',name:'HOLDERS',desc:'top-10 not too heavy',run:t=>({ok:t.top10<=cfg.maxTop10,note:`top 10 hold ${t.top10.toFixed(0)}%`})},
  {k:'V',c:'#2da66a',name:'VOLUME FLOW',desc:'5m vs 1h average',run:t=>({ok:t.vol>=cfg.minVol,note:`5m volume x${t.vol.toFixed(1)}`})},
@@ -245,7 +245,7 @@ async function nextTok(){try{
  const p=Q.pop();if(!p)return null;if(S.pos.some(x=>x.t.addr===p.addr)||S.closed.some(x=>x.id===p.addr))return null;
  const[sf,pr]=await Promise.all([jf('/api/safety?mint='+p.addr).then(r=>r.ok?r.json():null),jf('/api/prices?a='+p.addr).then(r=>r.json())]);
  if(!sf||!pr[p.addr])return null;
- return{sym:String(p.sym).replace(/[^A-Za-z0-9_.$-]/g,'').slice(0,11),id:p.addr,addr:p.addr,price:1,px:pr[p.addr],age:Math.round((Date.now()/1000-p.created)/60),liq:p.liq,vol:p.vol,smart:Math.min(4,Math.floor(p.buyers/8)),sent:p.buys+p.sells?p.buys/(p.buys+p.sells):.5,devAge:99,mint:sf.mint,honey:sf.honey,devPct:sf.devPct,top10:sf.top10,risks:sf.risks||[]}
+ return{sym:String(p.sym).replace(/[^A-Za-z0-9_.$-]/g,'').slice(0,11),id:p.addr,addr:p.addr,price:1,px:pr[p.addr],age:Math.round((Date.now()/1000-p.created)/60),liq:p.liq,vol:p.vol,smart:Math.min(4,Math.floor(p.buyers/8)),sent:p.buys+p.sells?p.buys/(p.buys+p.sells):.5,devAge:sf.devAge==null?99:sf.devAge,mint:sf.mint,honey:sf.honey,devPct:sf.devPct,top10:sf.top10,risks:sf.risks||[],dng:sf.dng||[],lp:sf.lp,ins:sf.ins||0,insPct:sf.insPct||0,buys:p.buys,sells:p.sells}
 }catch(e){return null}}
 async function tick(){if(busy&&Date.now()-busyAt<25000)return;busy=1;busyAt=Date.now();try{await tk2()}catch(e){console.error(e);g('vd').textContent='error: '+(e&&e.message)}finally{busy=0}}
 let fastBusy=0;
@@ -331,7 +331,7 @@ function renderDr(){if(!DR)return;const t=TOK[DR.id];if(!t)return;const el=g('dr
  el.innerHTML=`<div class="dh"><div><h3>${esc(t.sym)}</h3><small class="mu">${t.addr?esc(t.addr):'simulated coin'}</small></div><button id="dx" aria-label="Close">✕</button></div>
 <div class="dst">${p?'<span class="pill out">OPEN · watcher bot on</span>':cl?'<span class="pill ls">CLOSED · '+esc(cl.why)+'</span>':'<span class="pill in">NOT TRADED</span>'}${m.url?`<a href="${esc(m.url)}" target="_blank" rel="noopener">DexScreener ↗</a>`:''}</div>
 ${r!=null?`<div class="dp"><b class="${r>=0?'up':'dn'}">${r>=0?'+':''}${r.toFixed(2)}%</b><span class="mu">${p?'unrealised '+sg(unr):'result '+sg(cl.pnl)}</span></div>`:''}${sp}
-<div class="dg">${st('Market cap',usd(m.mc))}${st('FDV',usd(m.fdv))}${st('Liquidity',usd(m.liq!=null?m.liq:t.liq))}${st('Price',m.px?pr4(m.px):'–')}${st('Volume 5m',usd(v.m5))}${st('Volume 1h',usd(v.h1))}${st('Volume 24h',usd(v.h24))}${st('Change 5m / 1h',cg('m5')+' / '+cg('h1'))}${st('Buys / sells 5m',bs('m5'))}${st('Buys / sells 1h',bs('h1'))}${st('Pair age',m.created?dur(Date.now()-m.created):t.age+'m')}${st('Top-10 holders',t.top10!=null?t.top10.toFixed(0)+'%':'–')}${st('Dev holds',t.devPct!=null?t.devPct.toFixed(1)+'%':'–')}${st('Mint / freeze',t.mint?'renounced':'active')}${st('Volume spike','x'+(+t.vol||0).toFixed(1))}${st('Analyst score',t.score!=null?t.score:'–')}</div>
+<div class="dg">${st('Market cap',usd(m.mc))}${st('FDV',usd(m.fdv))}${st('Liquidity',usd(m.liq!=null?m.liq:t.liq))}${st('Price',m.px?pr4(m.px):'–')}${st('Volume 5m',usd(v.m5))}${st('Volume 1h',usd(v.h1))}${st('Volume 24h',usd(v.h24))}${st('Change 5m / 1h',cg('m5')+' / '+cg('h1'))}${st('Buys / sells 5m',bs('m5'))}${st('Buys / sells 1h',bs('h1'))}${st('Pair age',m.created?dur(Date.now()-m.created):t.age+'m')}${st('Top-10 holders',t.top10!=null?t.top10.toFixed(0)+'%':'–')}${st('Dev holds',t.devPct!=null?t.devPct.toFixed(1)+'%':'–')}${st('Mint / freeze',t.mint?'renounced':'active')}${st('LP locked / burned',t.lp!=null?t.lp.toFixed(0)+'%':'–')}${st('Insider-held supply',t.insPct!=null?t.insPct.toFixed(0)+'%':'–')}${st('Dev wallet age',t.devAge!=null&&t.devAge<99?t.devAge+'d':'unknown')}${st('Volume spike','x'+(+t.vol||0).toFixed(1))}${st('Analyst score',t.score!=null?t.score:'–')}</div>
 <h4>AGENT VERDICTS</h4>${(t.chk||[]).map(c=>`<div class="ck"><span class="${c[1]?'up':'dn'}">${c[1]?'✓':'✕'}</span><b>${esc(c[0])}</b><small class="mu">${esc(c[2])}</small></div>`).join('')}
 ${t.risks&&t.risks.length?'<h4>RUGCHECK RISKS</h4>'+t.risks.map(x=>`<div class="ck"><span class="dn">!</span><b>${esc(x.n)}</b><small class="mu">${esc(x.l)}</small></div>`).join(''):''}`;
  el.scrollTop=y}
