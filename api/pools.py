@@ -1,5 +1,5 @@
 """New Solana pools from GeckoTerminal (free, no key). Edge-cached for 60s so every visitor shares one upstream call."""
-import json, urllib.request
+import json, re, urllib.request
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler
 
@@ -23,7 +23,7 @@ class handler(BaseHTTPRequestHandler):
             for p in json.load(urllib.request.urlopen(req, timeout=8)).get("data", []):
                 at = p["attributes"]; v = at.get("volume_usd") or {}; tx = (at.get("transactions") or {}).get("m5") or {}
                 v1 = f(v.get("h1"))
-                out.append({"id": p["id"], "sym": "$" + at["name"].split(" / ")[0][:10].upper(),
+                out.append({"id": p["id"], "sym": "$" + (re.sub(r"[^A-Za-z0-9_.-]", "", at["name"].split(" / ")[0])[:10].upper() or "COIN"),
                     "addr": p["relationships"]["base_token"]["data"]["id"].split("_", 1)[1],
                     "created": datetime.fromisoformat(at["pool_created_at"].replace("Z", "+00:00")).timestamp(),
                     "liq": f(at.get("reserve_in_usd")), "vol": round(f(v.get("m5")) / (v1 / 12), 2) if v1 > 0 else 0,

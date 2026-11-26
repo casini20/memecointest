@@ -30,6 +30,7 @@ class handler(BaseHTTPRequestHandler):
             reply(self, 200, {"mint": rep.get("mintAuthority") is None and rep.get("freezeAuthority") is None,
                 "honey": bool(rep.get("rugged")),
                 "devPct": round(f(rep.get("creatorBalance")) / sup * 100, 2) if sup else 0.0,
-                "top10": round(sum(f(h.get("pct")) for h in hold[:10]), 1)}, "s-maxage=300")
+                "top10": round(sum(f(h.get("pct")) for h in hold[:10]), 1),
+                "risks": [{"n": str(r.get("name"))[:60], "l": str(r.get("level"))[:12]} for r in (rep.get("risks") or [])[:6]]}, "s-maxage=300")
         except Exception as e:
             reply(self, 502, {"error": str(e)}, "")
