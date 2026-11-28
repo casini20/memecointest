@@ -6,8 +6,8 @@
 <title>Agent Sandbox – paper trading</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter+Tight:wght@200;300;400;500;600&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#080a10;--sf:#10131c;--sf2:#171b27;--ln:#232938;--ln2:#363e52;--tx:#e9edf6;--mu:#8b94a9;--ac:#7c9cff;--up:#3ddc97;--dn:#ff6b81;--am:#f5bd4f;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);background:var(--bg)}
-:root[data-theme=light]{--bg:#eef0f5;--sf:#fff;--sf2:#f4f5f9;--ln:#dfe2ea;--ln2:#c3c8d6;--tx:#141824;--mu:#5d667a;--ac:#3b5bdb;--up:#0b8a55;--dn:#cc2f49;--am:#9a6700;color-scheme:light}
+:root{--bg:#000;--sf:#050505;--sf2:#0e0e0e;--ln:#1b1b1b;--ln2:#2e2e2e;--tx:#f4f4f4;--mu:#858585;--ac:#f4f4f4;--up:#3ddc97;--dn:#ff6b81;--am:#f5bd4f;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);background:var(--bg)}
+:root[data-theme=light]{--bg:#f2f2f2;--sf:#fff;--sf2:#f6f6f6;--ln:#e2e2e2;--ln2:#c8c8c8;--tx:#0a0a0a;--mu:#666;--ac:#0a0a0a;--up:#0b8a55;--dn:#cc2f49;--am:#9a6700;color-scheme:light}
 *{box-sizing:border-box}[hidden]{display:none!important}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 body{margin:0;min-height:100vh;background:var(--bg);color:var(--tx);font:14px/1.5 "Inter Tight",system-ui,sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
@@ -169,6 +169,32 @@ input[type=range]::-webkit-slider-thumb{background:var(--ac)}input[type=range]::
 @media(max-width:640px){main{gap:10px;padding:10px}.kpis{grid-template-columns:1fr 1fr}.pnl .pt:first-child{grid-column:auto}.thead{display:none}
 .row{grid-template-columns:minmax(0,1fr) auto auto;gap:4px 12px}.row small{grid-row:2;grid-column:1/-1;text-align:left}.rt{grid-template-columns:minmax(0,1fr) auto auto}}
 @media(max-width:900px){.pnl .pt:first-child{grid-column:auto}.chips{grid-template-columns:1fr 1fr}}
+
+/* paired cards */
+.duo{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:stretch}
+.duo>.sec{background:var(--sf);min-width:0}
+.stats{display:flex;flex-direction:column;gap:0;padding:0;background:var(--sf)}
+.hero{flex:1;background:none;padding:24px 24px 20px}.hero #bal{font-size:clamp(40px,4.4vw,64px)}
+.counts{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:1px solid var(--ln)}
+.counts .kp{background:none;padding:14px 24px}.counts .kp+.kp{border-left:1px solid var(--ln)}.counts b{font-size:22px;line-height:1.3}
+.pnl{display:grid;grid-template-columns:repeat(6,1fr);gap:0;background:none;border-top:1px solid var(--ln)}
+.pnl .pt,.pnl .pt:first-child{grid-column:span 2;background:none;padding:14px 24px}
+.pnl .pt:nth-child(-n+3){border-bottom:1px solid var(--ln)}.pnl .pt:nth-child(n+4){grid-column:span 3}
+.pnl .pt:not(:nth-child(1)):not(:nth-child(4)){border-left:1px solid var(--ln)}
+.pt b{font-size:20px;margin:4px 0 0}.pt span{font-size:11.5px}
+.opn{display:flex;flex-direction:column}.opn #pos{flex:1 1 0;min-height:180px;overflow:auto}
+.opn .empty{height:100%;display:grid;place-items:center;text-align:center;border:0;padding:20px}
+.thead,.row{grid-template-columns:minmax(0,1.3fr) 56px minmax(0,1.5fr) 82px;gap:10px}.thead span:nth-child(3){text-align:right}
+.row small{font-size:12px}.row .pp{min-width:0;font-size:16px}
+#ch{height:250px}
+.trd{display:flex;flex-direction:column}.rtl{flex:1 1 0;min-height:300px}
+.rt{grid-template-columns:minmax(0,1fr) auto 100px}
+.fu{animation:fu .8s}.fd{animation:fd .8s}@keyframes fu{from{background:color-mix(in srgb,var(--up) 10%,transparent)}}@keyframes fd{from{background:color-mix(in srgb,var(--dn) 10%,transparent)}}
+@media(max-width:960px){.duo{grid-template-columns:minmax(0,1fr)}.opn #pos{flex:none;max-height:420px}.rtl{flex:none}}
+@media(max-width:640px){.duo{gap:10px}.pnl .pt,.pnl .pt:first-child,.counts .kp,.hero{padding-left:14px;padding-right:14px}.pt b{font-size:16px}
+.row{grid-template-columns:minmax(0,1fr) auto auto}}
+.fu,.fd{animation:none}
+.chips{background:var(--sf);gap:0}.chips .cp{box-shadow:1px 0 0 var(--ln),0 1px 0 var(--ln)}
 </style>
 </head>
 <body>
@@ -189,15 +215,20 @@ input[type=range]::-webkit-slider-thumb{background:var(--ac)}input[type=range]::
   <div class="chips" id="chips" aria-label="Latest decisions"></div>
   <div class="sbf"><div class="vd" id="vd">waiting for the first token…</div><div class="cap">Coins go clockwise through robots 1 → 8. If all agree, the decision maker in the middle buys.</div></div>
 </section>
+<div class="duo">
 <section class="sec stats" aria-label="Account overview">
   <div class="hero"><span class="lbl">Balance</span><b id="bal">$0</b></div>
-  <div class="kpis"><div class="pnl" id="pnl"></div><div class="kp"><span class="lbl">Trades</span><b id="nt">0</b></div><div class="kp"><span class="lbl">Wins</span><b id="nw">0</b></div><div class="kp"><span class="lbl">Losses</span><b id="nl">0</b></div></div>
+  <div class="counts"><div class="kp"><span class="lbl">Trades</span><b id="nt">0</b></div><div class="kp"><span class="lbl">Wins</span><b id="nw">0</b></div><div class="kp"><span class="lbl">Losses</span><b id="nl">0</b></div></div>
+  <div class="pnl" id="pnl"></div>
 </section>
-<section class="sec"><p class="ey"><span>Open positions</span><span id="po"></span></p><div class="thead lbl"><span>Coin</span><span>Side</span><span>Invested · P&amp;L</span><span>Return</span></div><div id="pos"></div></section>
+<section class="sec opn"><p class="ey"><span>Open positions</span><span id="po"></span></p><div class="thead lbl"><span>Coin</span><span>Side</span><span>Invested · P&amp;L</span><span>Return</span></div><div id="pos"></div></section>
+</div>
+<div class="duo">
 <section class="sec"><p class="ey"><span>Performance · start vs now</span><span id="rw"></span></p>
   <div class="res"><span class="lbl">Start</span><b id="r0"></b></div><div class="rb"><u></u></div><div class="res"><span class="lbl">Now</span><b id="r1"></b></div><div class="rb"><i id="rbf"></i><u></u></div>
   <svg id="ch" viewBox="0 0 400 90" preserveAspectRatio="none" role="img" aria-label="Equity curve"></svg></section>
-<section class="sec"><p class="ey"><span>Recent trades</span><span id="rt"></span></p><div id="log" class="rtl"></div></section>
+<section class="sec trd"><p class="ey"><span>Recent trades</span><span id="rt"></span></p><div id="log" class="rtl"></div></section>
+</div>
 </main>
 <p class="note">Everything here is simulated: tokens, prices and rugs are randomly generated, with a fee on each side. It does not connect to any wallet or exchange, and results here say nothing about real markets.</p>
 <dialog id="dlg"><div id="dlgb"></div></dialog>
@@ -322,7 +353,7 @@ const rgba=a=>`rgba(${C.ink},${clamp(a,0,1)})`;
 const hexa=(h,a)=>{const n=parseInt(h.slice(1),16);return`rgba(${n>>16},${n>>8&255},${n&255},${clamp(a,0,1)})`};
 const PAL=['#ff9f5a','#ff6b81','#f5cf4f','#4da3ff','#2dd4bf','#4ade80','#a78bfa','#f472b6'],EXTRA={in:'#67d3f5',core:'#7c9cff',exit:'#f5bd4f',watch:'#38c6d9',vault:'#9aa5ff'};
 const colOf=n=>n.ag?PAL[n.i%PAL.length]:EXTRA[n.id];
-const theme=()=>{C=V.theme==='light'?{ink:'20,24,36',bg:'#eef0f5',fg:'#141824',body:'#ffffff',up:'#0b8a55',dn:'#cc2f49'}:{ink:'233,237,246',bg:'#080a10',fg:'#e9edf6',body:'#151a27',up:'#3ddc97',dn:'#ff6b81'}};
+const theme=()=>{C=V.theme==='light'?{ink:'10,10,10',bg:'#f2f2f2',fg:'#0a0a0a',body:'#ffffff',up:'#0b8a55',dn:'#cc2f49'}:{ink:'244,244,244',bg:'#000000',fg:'#f4f4f4',body:'#0b0b0b',up:'#3ddc97',dn:'#ff6b81'}};
 const font=(w,s,m)=>`${w} ${s}px ${m?'"IBM Plex Mono",monospace':'"Inter Tight",system-ui,sans-serif'}`;
 const mk=(id,name,glyph,x)=>{const n={id,name,glyph,fl:0,x:0,y:0,u:.5,v:.5,st:0,stT:0,...x};N.push(n);by[id]=n};
 const ed=(a,b,x)=>E.push({a:by[a],b:by[b],g:0,x:!!x,s:E.length%2?1:-1});
@@ -368,7 +399,7 @@ function robot(c,x,y,R,col,glyph,st,t,ph){const eye=st===1?C.up:st===-1?C.dn:col
  box(-.5,1.06,.36,.32,.1,col);box(.14,1.06,.36,.32,.1,col);
  box(-.68,.17,1.36,.98,.3,C.body);
  box(-.96,-1.36,1.92,1.4,.46,col);
- rr(c,-.74*R,-1.12*R,1.48*R,.88*R,.3*R);c.fillStyle='#0a0d16';c.fill();
+ rr(c,-.74*R,-1.12*R,1.48*R,.88*R,.3*R);c.fillStyle='#050505';c.fill();
  c.fillStyle=eye;[-.34,.34].forEach(s=>{const h=blink?.05:st===1?.14:.3;rr(c,(s-.12)*R,(-.68-h/2)*R,.24*R,h*R,Math.min(.1,h/2)*R);c.fill()});
  c.fillStyle=C.fg;c.textAlign='center';c.textBaseline='middle';c.font=font(600,R*(glyph.length>1?.5:.62),true);c.fillText(glyph,0,.69*R);c.textBaseline='alphabetic';c.restore()}
 function arrive(f,n){n.fl=1;
